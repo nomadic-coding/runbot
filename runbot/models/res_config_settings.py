@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+from psycopg2.extensions import AsIs
+import re
+import string
 
 from .. import common
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+
+RE_POSTGRE_URI = re.compile(r'(?P<protocol>postgres|postgresql)://(?P<user>\w+)?:?(?P<password>[\w%s]+)?@?\w+' % string.punctuation.replace('@', ''))
 
 
 class ResConfigSettings(models.TransientModel):
@@ -34,6 +40,7 @@ class ResConfigSettings(models.TransientModel):
     @api.multi
     def set_values(self):
         super(ResConfigSettings, self).set_values()
+        self.grant_access()
         set_param = self.env['ir.config_parameter'].sudo().set_param
         set_param("runbot.runbot_workers", self.runbot_workers)
         set_param("runbot.runbot_running_max", self.runbot_running_max)
@@ -43,3 +50,30 @@ class ResConfigSettings(models.TransientModel):
         set_param("runbot.runbot_max_age", self.runbot_max_age)
         set_param("runbot.runbot_logdb_uri", self.runbot_logdb_uri)
         set_param('runbot.runbot_update_frequency', self.runbot_update_frequency)
+
+    def grant_access(self):
+        """ validate postgresql uri. See Connections URI:
+            https://www.postgresql.org/docs/10/libpq-connect.html
+            and grant access to the log user
+        """
+        logdb_uri = self.runbot_logdb_uri
+        if not logdb_uri:
+            return
+        res = RE_POSTGRE_URI.search(logdb_uri)
+        if not res:
+            raise UserError('Invalid URI in the runbot build logs')
+        if not res.group('user'):
+            raise UserError('A username is required in the runbot URI for build logs')
+        if not res.group('password'):
+            raise UserError('A Password is required in the runbot URI for build logs')
+
+        self.env.cr.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (res.group('user'), ))
+        user_exists = self.env.cr.fetchone()
+        if not user_exists:
+            self.env.cr.execute("CREATE USER %s WITH PASSWORD %s", (AsIs(res.group('user')), res.group('password')))
+        else:
+            self.env.cr.execute("ALTER USER %s WITH PASSWORD %s", (AsIs(res.group('user')), res.group('password')))
+        self.env.cr.execute("GRANT INSERT,SELECT,UPDATE ON ir_logging TO %s", (AsIs(res.group('user')), ))
+        self.env.cr.execute("GRANT UPDATE ON ir_logging_id_seq TO %s", (AsIs(res.group('user')), ))
+        self.env.cr.execute("GRANT UPDATE(triggered_result) on runbot_build to %s", (AsIs(res.group('user')), ))
+        self.env.cr.execute("GRANT SELECT(id) on runbot_build to %s", (AsIs(res.group('user')), ))
