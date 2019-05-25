@@ -40,7 +40,6 @@ class ResConfigSettings(models.TransientModel):
     @api.multi
     def set_values(self):
         super(ResConfigSettings, self).set_values()
-        self.grant_access()
         set_param = self.env['ir.config_parameter'].sudo().set_param
         set_param("runbot.runbot_workers", self.runbot_workers)
         set_param("runbot.runbot_running_max", self.runbot_running_max)
@@ -48,7 +47,9 @@ class ResConfigSettings(models.TransientModel):
         set_param("runbot.runbot_starting_port", self.runbot_starting_port)
         set_param("runbot.runbot_domain", self.runbot_domain)
         set_param("runbot.runbot_max_age", self.runbot_max_age)
-        set_param("runbot.runbot_logdb_uri", self.runbot_logdb_uri)
+        if self.runbot_logdb_uri != self.env['ir.config_parameter'].sudo().get_param('runbot.runbot_logdb_uri'):
+            self.grant_access()
+            set_param("runbot.runbot_logdb_uri", self.runbot_logdb_uri)
         set_param('runbot.runbot_update_frequency', self.runbot_update_frequency)
 
     def grant_access(self):
