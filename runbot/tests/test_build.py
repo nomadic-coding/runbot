@@ -154,6 +154,74 @@ class Test_Build(common.TransactionCase):
         self.assertEqual(build1.local_state, 'done', 'A killed pending duplicate build should mark the real build as done')
         self.assertEqual(build1.local_result, 'skipped', 'A killed pending duplicate build should mark the real build as skipped')
 
+    def test_nb(self):
+        build1 = self.Build.create({
+            'branch_id': self.branch_10.id,
+            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
+        })
+        self.env.cr.test = True
+        build1_1 = self.Build.create({
+            'branch_id': self.branch_10.id,
+            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
+            'parent_id': build1.id,
+            'hidden': True,
+            'extra_params': '2', # avoid duplicate
+        })
+        build1_2 = self.Build.create({
+            'branch_id': self.branch_10.id,
+            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
+            'parent_id': build1.id,
+            'extra_params': '3', # avoid duplicate
+        })
+        build1_1_1 = self.Build.create({
+            'branch_id': self.branch_10.id,
+            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
+            'parent_id': build1_1.id,
+            'extra_params': '4', # avoid duplicate
+        })
+        build1_1_2 = self.Build.create({
+            'branch_id': self.branch_10.id,
+            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
+            'parent_id': build1_1.id,
+            'extra_params': '5', # avoid duplicate
+        })
+
+        def assert_counts(nb_pending, nb_testing, nb_running, build):
+            self.assertEqual(build.nb_pending, nb_pending)
+            self.assertEqual(build.nb_testing, nb_testing)
+            self.assertEqual(build.nb_running, nb_running)
+
+        assert_counts(5, 0, 0, build1)
+        assert_counts(3, 0, 0, build1_1)
+        assert_counts(1, 0, 0, build1_2)
+        assert_counts(1, 0, 0, build1_1_1)
+        assert_counts(1, 0, 0, build1_1_2)
+
+        build1.local_state = 'done'
+        build1_1.local_state = 'done'
+        assert_counts(3, 0, 0, build1)
+        assert_counts(2, 0, 0, build1_1)
+
+        build1_1_1.local_state = 'testing'
+        assert_counts(2, 1, 0, build1)
+        assert_counts(1, 1, 0, build1_1)
+        assert_counts(1, 0, 0, build1_2)
+        assert_counts(0, 1, 0, build1_1_1)
+
+        build1_2.local_state = 'testing'
+        assert_counts(1, 2, 0, build1)
+        assert_counts(1, 1, 0, build1_1)
+        assert_counts(0, 1, 0, build1_2)
+        assert_counts(0, 1, 0, build1_1_1)
+
+        build1_1_2.local_state = 'done'
+        build1_1_1.local_state = 'done'
+        build1_2.local_state = 'done'
+        assert_counts(0, 0, 0, build1)
+        assert_counts(0, 0, 0, build1_1)
+        assert_counts(0, 0, 0, build1_2)
+        assert_counts(0, 0, 0, build1_1_1)
+        assert_counts(0, 0, 0, build1_1_2)
 
 def rev_parse(repo, branch_name):
     """

@@ -1,0 +1,24 @@
+[1mdiff --git a/runbot/tests/test_build.py b/runbot/tests/test_build.py[m
+[1mindex dabfbaa..f723fa8 100644[m
+[1m--- a/runbot/tests/test_build.py[m
+[1m+++ b/runbot/tests/test_build.py[m
+[36m@@ -154,6 +154,19 @@[m [mclass Test_Build(common.TransactionCase):[m
+         self.assertEqual(build1.local_state, 'done', 'A killed pending duplicate build should mark the real build as done')[m
+         self.assertEqual(build1.local_result, 'skipped', 'A killed pending duplicate build should mark the real build as skipped')[m
+ [m
+[32m+[m[32m    def test_nb(self):[m
+[32m+[m[32m        self.env.cr.test = True[m
+[32m+[m[32m        build1 = self.Build.create({[m
+[32m+[m[32m            'branch_id': self.branch_10.id,[m
+[32m+[m[32m            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',[m
+[32m+[m[32m        })[m
+[32m+[m[32m        build1_1 = self.Build.create({[m
+[32m+[m[32m            'branch_id': self.branch_10.id,[m
+[32m+[m[32m            'name': 'd0d0caca0000ffffffffffffffffffffffffffff',[m
+[32m+[m[32m            'parent_id': build1.id,[m
+[32m+[m[32m            'hidden': True,[m
+[32m+[m[32m        })[m
+[32m+[m
+ [m
+ def rev_parse(repo, branch_name):[m
+     """[m
