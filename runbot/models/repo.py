@@ -172,6 +172,7 @@ class runbot_repo(models.Model):
 
         get_ref_time = self._get_fetch_head_time()
         if not self.get_ref_time or get_ref_time > self.get_ref_time:
+            _logger.debug('get_ref_time: into')
             self.get_ref_time = get_ref_time
             fields = ['refname', 'objectname', 'committerdate:iso8601', 'authorname', 'authoremail', 'subject', 'committername', 'committeremail']
             fmt = "%00".join(["%(" + field + ")" for field in fields])
@@ -179,6 +180,7 @@ class runbot_repo(models.Model):
             git_refs = git_refs.strip()
             return [tuple(field for field in line.split('\x00')) for line in git_refs.split('\n')]
         else:
+            _logger.debug('get_ref_time: skipped')
             return []
 
     def _find_or_create_branches(self, refs):

@@ -156,9 +156,12 @@ class runbot_build(models.Model):
         return result_order.index(result)
 
     def _update_nb_children(self, new_state, old_state=None):
+        _logger.debug('debcount going from %s to %s for %s' % (old_state, new_state, self))
+
         # could be interresting to update state in batches.
         tracked_count_list = ['pending', 'testing', 'running']
         if (new_state not in tracked_count_list and old_state not in tracked_count_list) or new_state == old_state:
+            _logger.debug('debcount skipping')
             return
 
         for record in self:
@@ -167,9 +170,12 @@ class runbot_build(models.Model):
                 values['nb_%s' % old_state] = record['nb_%s' % old_state] - 1
             if new_state in tracked_count_list:
                 values['nb_%s' % new_state] = record['nb_%s' % new_state] + 1
-
+            _logger.debug('debcount values: %s' % (values))
             record.write(values)
+
+            _logger.debug('debcount final: %s %s %s %s %s' % (record.id, record.local_state, record.nb_testing, record.nb_pending, record.nb_running))
             if record.parent_id:
+                _logger.debug('debcount updating parent')
                 record.parent_id._update_nb_children(new_state, old_state)
 
     @api.depends('real_build.active_step')
@@ -288,9 +294,12 @@ class runbot_build(models.Model):
     def write(self, values):
         # some validation to ensure db consistency
         if 'local_state' in values:
+            _logger.debug('debcount ___________________________________________________________________________')
+            _logger.debug('debcount local_state "%s" in values for builds "%s"' % (values.get('local_state'), self))
             build_by_old_values = defaultdict(lambda: self.env['runbot.build'])
             for record in self:
                 build_by_old_values[record.local_state] += record
+                _logger.debug('debcount current: %s %s %s %s %s' % (record.id, record.local_state, record.nb_testing, record.nb_pending, record.nb_running))
             for local_state, builds in build_by_old_values.items():
                 builds._update_nb_children(values.get('local_state'), local_state)
         assert 'state' not in values
