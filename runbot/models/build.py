@@ -165,51 +165,16 @@ class runbot_build(models.Model):
         if new_state not in tracked_count_list and old_state not in tracked_count_list and new_state != old_state:
             return
 
-        builds_to_update = defaultdict(int)
-        parent_ancestors = {}
-
-        def get_ancestors_ids(build):
-            if not build.parent_id:
-                return []
-            if build not in parent_ancestors:
-                parent_ancestors[build.parent_id.id] = [build.parent_id.id] + get_ancestors_ids(build.parent_id)
-            return parent_ancestors[build.parent_id.id]
-
         for record in self:
-            for ancestor_id in [record.id] + get_ancestors_ids(record):
-                builds_to_update[ancestor_id] += 1
-
-        builds_by_increment = defaultdict(list)
-        for build_id, count in builds_to_update.items():
-            builds_by_increment[count].append(build_id)
-        for increment, ids in builds_by_increment.items():
-            query = """
-                UPDATE runbot_build
-                SET %(counter_field)s = %(counter_field)s %(sign)s %(increment)s
-                WHERE id in %%s;
-            """
-            if new_state in tracked_count_list:
-                self.env.cr.execute(query % {
-                    'counter_field': 'nb_%s' % new_state,
-                    'sign': '+',
-                    'increment': increment,
-                }, (tuple(ids),))
-
+            values = {}
             if old_state in tracked_count_list:
-                self.env.cr.execute(query % {
-                    'counter_field': 'nb_%s' % old_state,
-                    'sign': '-',
-                    'increment': increment,
-                }, (tuple(ids),))
+                values['nb_%s' % old_state] = record['nb_%s' % old_state] - 1
+            if new_state in tracked_count_list:
+                values['nb_%s' % new_state] = record['nb_%s' % new_state] + 1
 
-        fnames = []
-        if new_state in tracked_count_list:
-            fnames.append('nb_%s' % new_state)
-        if old_state in tracked_count_list:
-            fnames.append('nb_%s' % old_state)
-
-        self.env['runbot.build'].invalidate_cache(fnames=fnames, ids=[id for id in builds_to_update])
-
+            record.write(values)
+            if record.parent_id:
+                record.parent_id._update_nb_children(new_state, old_state)
 
     @api.depends('real_build.active_step')
     def _compute_job(self):

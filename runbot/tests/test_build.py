@@ -165,25 +165,25 @@ class Test_Build(common.TransactionCase):
             'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
             'parent_id': build1.id,
             'hidden': True,
-            'extra_params': '2', # avoid duplicate
+            'extra_params': '2',  # avoid duplicate
         })
         build1_2 = self.Build.create({
             'branch_id': self.branch_10.id,
             'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
             'parent_id': build1.id,
-            'extra_params': '3', # avoid duplicate
+            'extra_params': '3',
         })
         build1_1_1 = self.Build.create({
             'branch_id': self.branch_10.id,
             'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
             'parent_id': build1_1.id,
-            'extra_params': '4', # avoid duplicate
+            'extra_params': '4',
         })
         build1_1_2 = self.Build.create({
             'branch_id': self.branch_10.id,
             'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
             'parent_id': build1_1.id,
-            'extra_params': '5', # avoid duplicate
+            'extra_params': '5',
         })
 
         def assert_counts(nb_pending, nb_testing, nb_running, build):
