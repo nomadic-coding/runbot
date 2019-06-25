@@ -372,6 +372,7 @@ class runbot_repo(models.Model):
         build_ids = Build.search(domain_host + [('local_state', 'in', ['testing', 'running', 'deathrow'])])
         build_ids._schedule()
         self.env.cr.commit()
+        self.invalidate_cache()
 
         # launch new tests
 
@@ -384,6 +385,7 @@ class runbot_repo(models.Model):
                 # commit transaction to reduce the critical section duration
                 def allocate_builds(where_clause, limit):
                     self.env.cr.commit()
+                    self.invalidate_cache()
                     # self-assign to be sure that another runbot instance cannot self assign the same builds
                     query = """UPDATE
                                     runbot_build
@@ -423,7 +425,6 @@ class runbot_repo(models.Model):
             pending_build = Build.search(domain_host + [('local_state', '=', 'pending')], limit=available_slots)
             if pending_build:
                 pending_build._schedule()
-                self.env.cr.commit()
 
         # terminate and reap doomed build
         build_ids = Build.search(domain_host + [('local_state', '=', 'running')]).ids

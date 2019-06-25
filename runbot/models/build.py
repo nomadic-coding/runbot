@@ -517,6 +517,7 @@ class runbot_build(models.Model):
 
         for build in self:
             self.env.cr.commit()  # commit between each build to minimise transactionnal errors due to state computations
+            self.invalidate_cache()
             if build.local_state == 'deathrow':
                 build._kill(result='manually_killed')
                 continue
@@ -616,6 +617,8 @@ class runbot_build(models.Model):
             # cleanup only needed if it was not killed
             if build.local_state == 'done':
                 build._local_cleanup()
+        self.env.cr.commit()
+        self.invalidate_cache()
 
     def _path(self, *l, **kw):
         """Return the repo build path"""
@@ -803,6 +806,7 @@ class runbot_build(models.Model):
             self.env.cr.commit()
             build._github_status()
             build._local_cleanup()
+            self.invalidate_cache()
 
     def _ask_kill(self):
         # todo xdo, should we kill or skip children builds? it looks like yes, but we need to be carefull if subbuild can be duplicates
