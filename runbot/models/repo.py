@@ -613,7 +613,7 @@ class runbot_repo(models.Model):
                         shutil.rmtree(source_dir)
                     _logger.info('%s/%s source folder where deleted (%s kept)' % (len(to_delete), len(to_delete+to_keep), len(to_keep)))
                 else:
-                    _logger.warning('Inconsistency between sources and database: %s %s' % (cannot_be_deleted_path, to_keep))
+                    _logger.warning('Inconsistency between sources and database: \n%s \n%s' % (cannot_be_deleted_path-to_keep, to_keep-cannot_be_deleted_path))
 
         except:
             _logger.error('An exception occured while cleaning sources')
