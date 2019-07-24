@@ -49,3 +49,9 @@ class Step(models.Model):
             build._github_status_notify_all(status)
         # 0 is myself, -1 is everybody else, -2 nothing
         return -2
+
+    def _has_log(self):
+        self.ensure_one()
+        if self.job_type == 'cla_check':
+            return False
+        return super()._has_log()

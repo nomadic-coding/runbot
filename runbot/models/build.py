@@ -117,7 +117,7 @@ class runbot_build(models.Model):
                 record.global_state = record.duplicate_id.global_state
             else:
                 waiting_score = record._get_state_score('waiting')
-                if record._get_state_score(record.local_state) < waiting_score or record.nb_pending + record.nb_testing == 0:
+                if record._get_state_score(record.local_state) <= waiting_score or record.nb_pending + record.nb_testing == 0:
                     record.global_state = record.local_state
                 else:
                     record.global_state = 'waiting'
@@ -175,6 +175,10 @@ class runbot_build(models.Model):
             record.write(values)
             if record.parent_id:
                 record.parent_id._update_nb_children(new_state, old_state)
+
+    def _has_working_children(self):
+        self.ensure_one()
+        return any(child.global_state != 'done' for child in self.children_ids)
 
     @api.depends('real_build.active_step')
     def _compute_job(self):
@@ -581,13 +585,14 @@ class runbot_build(models.Model):
                     build._kill(result='ko')
                     continue
             else:  # testing/running build
+
                 if build.local_state == 'testing':
                     # failfast in case of docker error (triggered in database)
                     if (not build.local_result or build.local_result == 'ok') and build.triggered_result:
                         build.local_result = build.triggered_result
                         build._github_status()  # failfast
-                # check if current job is finished
-                if docker_is_running(build._get_docker_name()):
+
+                if docker_is_running(build._get_docker_name()) or build.active_step._waiting(build):
                     timeout = min(build.active_step.cpu_limit, int(icp.get_param('runbot.runbot_timeout', default=10000)))
                     if build.local_state != 'running' and build.job_time > timeout:
                         build._log('_schedule', '%s time exceeded (%ss)' % (build.active_step.name if build.active_step else "?", build.job_time))
@@ -830,7 +835,7 @@ class runbot_build(models.Model):
         if build.local_state == 'pending':
             build._skip()
             build._log('_ask_kill', 'Skipping build %s, requested by %s (user #%s)' % (build.dest, user.name, uid))
-        elif build.local_state in ['testing', 'running']:
+        elif build.local_state in ['testing', 'waiting', 'running']:
             build.requested_action = 'deathrow'
             build._log('_ask_kill', 'Killing build %s, requested by %s (user #%s)' % (build.dest, user.name, uid))
         for child in build.children_ids:  # should we filter build that are target of a duplicate_id?
@@ -937,7 +942,7 @@ class runbot_build(models.Model):
             if build.config_id.update_github_state:
                 runbot_domain = self.env['runbot.repo']._domain()
                 desc = "runbot build %s" % (build.dest,)
-                if build.local_state == 'testing':
+                if build.local_state in ['testing', 'waiting']':
                     state = 'pending'
                 elif build.local_state in ('running', 'done'):
                     state = 'error'
@@ -971,7 +976,7 @@ class runbot_build(models.Model):
             return {'active_step': False, 'local_state': 'done'}
 
         new_step = step_ids[next_index]  # job to do, state is job_state (testing or running)
-        return {'active_step': new_step.id, 'local_state': new_step._step_state()}
+        return {'active_step': new_step.id, 'local_state': new_step._step_state(self)}
 
     def _get_py_version(self):
         """return the python name to use from build instance"""

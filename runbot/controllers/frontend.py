@@ -108,6 +108,7 @@ class Runbot(Controller):
             context.update({
                 'branches': [branch_info(b) for b in branches],
                 'testing': build_obj.search_count([('repo_id', '=', repo.id), ('local_state', '=', 'testing')]),
+                # 'waiting': build_obj.search_count([('repo_id', '=', repo.id), ('local_state', '=', 'waiting')]),
                 'running': build_obj.search_count([('repo_id', '=', repo.id), ('local_state', '=', 'running')]),
                 'pending': build_obj.search_count([('repo_id', '=', repo.id), ('local_state', '=', 'pending')]),
                 'qu': QueryURL('/runbot/repo/' + slug(repo), search=search, refresh=refresh),
@@ -123,6 +124,7 @@ class Runbot(Controller):
                     'host': result['host'],
                     'testing': build_obj.search_count([('local_state', '=', 'testing'), ('host', '=', result['host'])]),
                     'running': build_obj.search_count([('local_state', '=', 'running'), ('host', '=', result['host'])]),
+                    # 'waiting': build_obj.search_count([('local_state', '=', 'waiting'), ('host', '=', result['host'])]),
                 })
 
         context.update({'message': request.env['ir.config_parameter'].sudo().get_param('runbot.runbot_message')})
@@ -203,10 +205,10 @@ class Runbot(Controller):
 
             if not last_build:
                 # Find the last build regardless the state to propose a rebuild
-                last_build = builds[0]
+                last_build = builds[0]  # TODO xdo do replace this by first build having the same config as the branch
 
             if last_build.local_state != 'running':
-                url = "/runbot/build/%s?ask_rebuild=1" % last_build.id
+                url = "/runbot/build/%s?ask_rebuild=1" % last_build.id # TODO xdo replace this by wake up
             else:
                 url = "http://%s/web/login?db=%s-all&login=admin&redirect=/web?debug=1" % (last_build.domain, last_build.dest)
         else:

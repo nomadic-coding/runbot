@@ -91,6 +91,7 @@ class ConfigStep(models.Model):
         ('run_odoo', 'Run odoo'),
         ('python', 'Python code'),
         ('create_build', 'Create build'),
+        ('wait_children', 'Wait for children'),
     ], default='install_odoo', required=True, tracking=True)
     protected = fields.Boolean('Protected', default=False, tracking=True)
     default_sequence = fields.Integer('Sequence', default=100, tracking=True)  # or run after? # or in many2many rel?
@@ -107,6 +108,7 @@ class ConfigStep(models.Model):
     # python
     python_code = fields.Text('Python code', tracking=True, default=PYTHON_DEFAULT)
     running_job = fields.Boolean('Job final state is running', default=False, help="Docker won't be killed if checked")
+    waiting_job = fields.Boolean('Job final state is waiting', default=False, help="Build will wait created all subbuild if checked")
     # create_build
     create_config_ids = fields.Many2many('runbot.build.config', 'runbot_build_config_step_ids_create_config_ids_rel', string='New Build Configs', tracking=True, index=True)
     number_builds = fields.Integer('Number of build to create', default=1, tracking=True)
@@ -172,21 +174,23 @@ class ConfigStep(models.Model):
                     _logger.log('%s tried to create an non supported test_param %s' % (self.env.user.name, values.get('extra_params')))
                     raise UserError('Invalid extra_params on config step')
 
-    def _run(self, build):
+    def _run(self, build, **kwargs):
         log_path = build._path('logs', '%s.txt' % self.name)
         build.write({'job_start': now(), 'job_end': False})  # state, ...
         build._log('run', 'Starting step %s from config %s' % (self.name, build.config_id.name), level='SEPARATOR')
-        return self._run_step(build, log_path)
+        return self._run_step(build, log_path, **kwargs)
 
-    def _run_step(self, build, log_path):
+    def _run_step(self, build, log_path, **kwargs):
         if self.job_type == 'run_odoo':
             return self._run_odoo_run(build, log_path)
         if self.job_type == 'install_odoo':
             return self._run_odoo_install(build, log_path)
         elif self.job_type == 'python':
-            return self._run_python(build, log_path)
+            return self._run_python(build, log_path, **kwargs)
         elif self.job_type == 'create_build':
             return self._create_build(build, log_path)
+        elif self.job_type == 'wait_children':
+            return 0
 
     def _create_build(self, build, log_path):
         Build = self.env['runbot.build']
@@ -218,7 +222,7 @@ class ConfigStep(models.Model):
                 })
                 build._log('create_build', 'created with config %s' % create_config.name, log_type='subbuild', path=str(children.id))
 
-    def _run_python(self, build, log_path):
+    def _run_python(self, build, log_path, **kwargs):
         eval_ctx = {
             'self': self,
             'fields': fields,
@@ -234,6 +238,7 @@ class ConfigStep(models.Model):
             'time': time,
             'grep': grep,
             'rfind': rfind,
+            'kwargs': kwargs
         }
         return safe_eval(self.sudo().python_code.strip(), eval_ctx, mode="exec", nocopy=True)
 
@@ -409,11 +414,19 @@ class ConfigStep(models.Model):
                         build._log('_checkout', "Module loaded not found in logs", level="ERROR")
         return build_values
 
-    def _step_state(self):
+    def _step_state(self, build):
         self.ensure_one()
-        if self.job_type == 'run_odoo' or (self.job_type == 'python' and self.running_job):
+        if self.job_type == 'run_odoo' or (self.running_job and self.job_type == 'python'):
             return 'running'
+        if self.job_type == 'wait_children' or (self.waiting_job and self.job_type in ('create_build', 'python')):
+            build._log('step_state', 'Waiting for children')
+            return 'waiting'
         return 'testing'
+
+    def _waiting(self, build):
+        # this level of indirection is not so usefull right now but it is more step buisiness to define it's state
+        # this will allow us to have more custom wait latter if needed
+        return build.local_state == 'waiting' and build._has_working_children()
 
     def _has_log(self):
         self.ensure_one()

@@ -300,8 +300,9 @@ class runbot_repo(models.Model):
                     # testing builds are killed
                     builds_to_kill = Build.search([
                         ('branch_id', '=', branch.id),
-                        ('local_state', '=', 'testing'),
-                        ('committer', '=', committer)
+                        ('global_state', 'in', ('testing', 'waiting')),
+                        ('committer', '=', committer),
+                        ('parent_id', '=', False)
                     ])
                     for btk in builds_to_kill:
                         btk._log('repo._update_git', 'Build automatically killed, newer build found.', level='WARNING')
@@ -411,14 +412,14 @@ class runbot_repo(models.Model):
         domain_host = domain + [('host', '=', host)]
 
         # schedule jobs (transitions testing -> running, kill jobs, ...)
-        build_ids = Build.search(domain_host + ['|', ('local_state', 'in', ['testing', 'running']), ('requested_action', 'in', ['wake_up', 'deathrow'])])
+        build_ids = Build.search(domain_host + ['|', ('local_state', 'in', ['testing', 'running', 'waiting']), ('requested_action', 'in', ['wake_up', 'deathrow'])])
         build_ids._schedule()
         self.env.cr.commit()
         self.invalidate_cache()
 
         # launch new tests
 
-        nb_testing = Build.search_count(domain_host + [('local_state', '=', 'testing')])
+        nb_testing = Build.search_count(domain_host + [('local_state', '=', 'testing')])  # don't count waiting here they are not part of the cap
         available_slots = workers - nb_testing
         reserved_slots = Build.search_count(domain_host + [('local_state', '=', 'pending')])
         assignable_slots = (available_slots - reserved_slots) if not assigned_only else 0
