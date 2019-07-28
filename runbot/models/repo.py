@@ -380,7 +380,7 @@ class runbot_repo(models.Model):
         # Extracted from update_git to be easily overriden in external module
         self.ensure_one()
         repo = self
-        repo._git(['fetch', '-p', 'origin', '+refs/heads/*:refs/heads/*', '+refs/pull/*/head:refs/pull/*'])
+        repo._git(['fetch', '-p', 'origin:master'])
 
     @api.multi
     def _update(self, force=True):
@@ -533,7 +533,7 @@ class runbot_repo(models.Model):
         start_time = time.time()
         timeout = self._get_cron_period()
         icp = self.env['ir.config_parameter']
-        update_frequency = int(icp.get_param('runbot.runbot_update_frequency', default=10))
+        update_frequency = int(icp.get_param('runbot.runbot_update_frequency', default=1))
         while time.time() - start_time < timeout:
             repos = self.search([('mode', '!=', 'disabled')])
             repos._update(force=False)
@@ -552,7 +552,7 @@ class runbot_repo(models.Model):
         start_time = time.time()
         timeout = self._get_cron_period()
         icp = self.env['ir.config_parameter']
-        update_frequency = int(icp.get_param('runbot.runbot_update_frequency', default=10))
+        update_frequency = int(icp.get_param('runbot.runbot_update_frequency', default=1))
         while time.time() - start_time < timeout:
             repos = self.search([('mode', '!=', 'disabled')])
             try:
