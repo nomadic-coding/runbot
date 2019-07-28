@@ -556,6 +556,7 @@ class runbot_repo(models.Model):
         while time.time() - start_time < timeout:
             repos = self.search([('mode', '!=', 'disabled')])
             try:
+                _logger.debug(repos)
                 repos._scheduler()
                 self.env.cr.commit()
                 self.env.reset()
