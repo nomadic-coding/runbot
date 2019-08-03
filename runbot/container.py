@@ -131,7 +131,7 @@ def docker_get_gateway_ip():
         return None
     if docker_net_inspect.stdout:
         try:
-            return json.loads(docker_net_inspect.stdout)[0]['IPAM']['Config'][0]['Gateway']
+            return json.loads(docker_net_inspect.stdout.decode('utf-8'))[0]['IPAM']['Config'][0]['Gateway']
         except KeyError:
             return None
 
