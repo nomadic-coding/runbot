@@ -106,7 +106,7 @@ def docker_run(run_cmd, log_path, build_dir, container_name, exposed_ports=None,
         docker_command.extend(['--volume=%s:/home/odoo/.odoorc:ro' % final_rc])
     if exposed_ports:
         for dp, hp in enumerate(exposed_ports, start=8069):
-            docker_command.extend(['-p', '127.0.0.1:%s:%s' % (hp, dp)])
+            docker_command.extend(['-p', '0.0.0.0:%s:%s' % (hp, dp)])
     if cpu_limit:
         docker_command.extend(['--ulimit', 'cpu=%s' % int(cpu_limit)])
     docker_command.extend(['odoo:runbot_tests', '/bin/bash', '-c', "%s" % run_cmd])
