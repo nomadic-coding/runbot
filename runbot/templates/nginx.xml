@@ -46,7 +46,7 @@ proxy_set_header X-Forwarded-Host $host:$server_port;
  ssl_prefer_server_ciphers on;
 
 server {
-    listen 8080 default;
+    listen 8080 ssl;
     location / { proxy_pass http://127.0.0.1:<t t-esc="port"/>; }
     location /longpolling/im/poll { return 404; }
     location /longpolling/poll { return 404; }
@@ -60,14 +60,14 @@ server {
 }
 <t t-foreach="builds" t-as="build">
 server {
-    listen 8080;
+    listen 8080 ssl;
     server_name ~^<t t-raw="re_escape(build.dest)"/>(-[a-z0-9]+)?\.<t t-raw="re_escape(fqdn)"/>$;
     location / { proxy_pass http://127.0.0.1:<t t-esc="build.port"/>; }
     location /longpolling { proxy_pass http://127.0.0.1:<t t-esc="build.port + 1"/>; }
 }
 </t>
 server {
-    listen 8080;
+    listen 8080 ssl;
     server_name ~.+\.<t t-raw="re_escape(fqdn)"/>$;
     location / { return 404; }
 }
