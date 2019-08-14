@@ -277,6 +277,8 @@ class runbot_repo(models.Model):
                 if branch.no_auto_build or branch.no_build:
                     continue
                 _logger.debug('repo %s branch %s new build found revno %s', self.name, branch.name, sha)
+                if 'refs/pull' in branch.name:
+                    continue
                 build_info = {
                     'branch_id': branch.id,
                     'name': sha,
