@@ -66,6 +66,7 @@ class runbot_branch(models.Model):
                     branch.branch_url = "https://%s/tree/%s" % (branch.repo_id.base, branch.branch_name)
 
     def _get_pull_info(self):
+        return {}
         self.ensure_one()
         repo = self.repo_id
         if repo.token and self.name.startswith('refs/pull/'):
